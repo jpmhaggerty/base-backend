@@ -50,7 +50,7 @@ const loadDataFeed = () => {
       .merge()
       .returning("*")
       .then(() => {
-        console.log("Data inserted");
+        console.log("Data refreshed");
       });
   }
 };
