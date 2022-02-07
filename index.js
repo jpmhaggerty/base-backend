@@ -1,20 +1,24 @@
-const axios = require("axios");
-const cors = require("cors");
 const express = require("express");
 const app = express();
+const cors = require("cors");
+const axios = require("axios");
 
-const dataURI = "https://api.weather.gov/gridpoints/MLB/56,69/forecast";
-const dbTable = "weather";
+require("dotenv").config();
+const dataURI =
+  process.env.URI || "https://api.weather.gov/gridpoints/MLB/56,69/forecast";
+const dbTable = process.env.DB_TABLE || "weather";
+const environment =
+  require("./knexfile")[process.env.NODE_ENV || "development"];
 const port = process.env.PORT || 3000;
+const period = process.env.PERIOD || 10000;
+
+const knex = require("knex")(environment);
+
 let dataFeed = null;
-let period = 10000;
 let interval = null;
 
-const connection = require("./knexfile")["development"];
-const knex = require("knex")(connection);
-
-app.use(cors());
 app.use(express.json());
+app.use(cors());
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
@@ -34,36 +38,55 @@ const getDataFeed = () => {
     });
 };
 
-const updateDB = () => {
-  getDataFeed();
-  //push the API data into the database- will need the structure of the API
-  //table needs to mimic the API (revise migrate and seed files)
-  knex(dbTable)
-    .where({ name: "Banana" })
-    .update({ name: "BB" })
-    .then(() => {
-      console.log("Data inserted");
-    });
-  console.log("Read api");
+const loadDataFeed = () => {
+  if (!dataFeed) {
+    return;
+  }
+
+  for (let i = 0; i < dataFeed.properties.periods.length; i++) {
+    knex(dbTable)
+      .insert(dataFeed.properties.periods[i])
+      .onConflict("number")
+      .merge()
+      .returning("*")
+      .then(() => {
+        console.log("Data inserted");
+      });
+  }
 };
 
-app.get("/data/:isDataOn", (req, res) => {
+const auditDataFeed = () => {
+  console.log("Drop records outside time bounds")
+}
+
+app.get("/data/:dataSwitch", (req, res) => {
   dataFeed = null;
-  if (req.params.isDataOn === "off") {
+  if (req.params.dataSwitch === "off") {
     clearInterval(interval);
     interval = null;
-  } else if (req.params.isDataOn === "on") {
+  } else if (req.params.dataSwitch === "on") {
     interval = setInterval(updateDB, period);
   }
   res.send(interval ? "Data is on" : "Data is off");
   res.end;
 });
 
+app.get("/api/:number", (req, res) => {
+  knex(dbTable)
+  .select("*")
+  .where({number: req.params.number})
+  .then((dataOut) => res.send(dataOut));
+});
+
+
 app.get("/api", (req, res) => {
   knex(dbTable)
-    .select("*")
-    .then((dataOut) => {
-      res.send(dataOut);
-      res.end;
-    });
+  .select("*")
+  .then((dataOut) => res.send(dataOut));
 });
+
+const updateDB = () => {
+  getDataFeed();
+  loadDataFeed();
+  auditDataFeed();
+};
