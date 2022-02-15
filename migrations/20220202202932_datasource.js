@@ -10,9 +10,9 @@ exports.up = function (knex) {
     tbl.string("temperatureTrend");
     tbl.string("windSpeed");
     tbl.string("windDirection");
-    tbl.string("icon");
+    tbl.string("icon", 512);
     tbl.string("shortForecast");
-    tbl.string("detailedForecast", 1024);
+    tbl.string("detailedForecast", 2048);
   });
 };
 
