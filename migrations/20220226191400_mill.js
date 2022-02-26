@@ -1,5 +1,5 @@
 exports.up = function (knex) {
-  return knex.schema.createTable("weather", (tbl) => {
+  return knex.schema.createTable("mill", (tbl) => {
     tbl.increments("number");
     tbl.string("name");
     tbl.string("startTime");
@@ -17,5 +17,5 @@ exports.up = function (knex) {
 };
 
 exports.down = function (knex) {
-  return knex.schema.dropTableIfExists("weather");
+  return knex.schema.dropTableIfExists("mill");
 };

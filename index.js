@@ -7,7 +7,7 @@ require("dotenv").config();
 const dbTable = process.env.DB_TABLE || "weather";
 const environment =
   require("./knexfile")[process.env.NODE_ENV || "development"];
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 const knex = require("knex")(environment);
 
 app.use(express.json());
@@ -16,10 +16,17 @@ app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
 
-const dataUrl = "https://api.weather.gov/gridpoints/MLB/56,69/forecast";
-const updatePeriod = 10000;
-// let dataFeed = null;
-let interval = null;
+let dataUrlMill = "https://api.weather.gov/gridpoints/MLB/46,69/forecast";
+let periodMill = 10000;
+let mill = null;
+
+let dataUrlCloud = "https://api.weather.gov/gridpoints/MLB/51,69/forecast";
+let periodCloud = 10000;
+let cloud = null;
+
+let dataUrlLightning = "https://api.weather.gov/gridpoints/MLB/56,69/forecast";
+let periodLightning = 10000;
+let lightning = null;
 
 // const getDataFeed = (url) => {
 //   axios
@@ -36,11 +43,11 @@ let interval = null;
 //     });
 // };
 
-// const loadDataFeed = (dataFeed, tableName, keyField = "number") => {
+// const loadDataFeed = (dataFeed, tableName, uniqueField = "number") => {
 //   for (let i = 0; i < dataFeed.length; i++) {
 //     knex(tableName)
 //       .insert(dataFeed[i])
-//       .onConflict(keyField)
+//       .onConflict(uniqueField)
 //       .merge()
 //       .returning("*")
 //       .then(() => {
@@ -53,7 +60,7 @@ let interval = null;
 //   console.log("Drop records outside time bounds");
 // };
 
-const updateDB = (url, tableName, keyField="number") => {
+const updateDB = (url, tableName, uniqueField = "number") => {
   axios
     .get(url)
     .then((response) => {
@@ -63,7 +70,7 @@ const updateDB = (url, tableName, keyField="number") => {
       for (let i = 0; i < response.data.properties.periods.length; i++) {
         knex(tableName)
           .insert(response.data.properties.periods[i])
-          .onConflict(keyField)
+          .onConflict(uniqueField)
           .merge()
           .returning("*")
           .then(() => {
@@ -77,39 +84,49 @@ const updateDB = (url, tableName, keyField="number") => {
     });
 };
 
-app.get("/data/:dataSwitch", (req, res) => {
-  // dataFeed = null;
-  if (req.params.dataSwitch === "off") {
-    clearInterval(interval);
-    interval = null;
-  } else if (req.params.dataSwitch === "on") {
-    interval = setInterval(updateDB(dataUrl, "weather", "number"), updatePeriod);
+//change to put
+app.get("/data/:source/:switch", (req, res) => {
+  if (req.params.switch === "off") {
+    clearInterval(`${req.params.source}`);
+    if (`${req.params.source}` === "lightning") {
+      lightning = null;
+    } else if (`${req.params.source}` === "cloud") {
+      cloud = null;
+    } else if (`${req.params.source}` === "mill") {
+      mill = null;
+    }
   }
-  res.send(interval ? "Data is on" : "Data is off");
+
+  if (req.params.switch === "on") {
+    if (`${req.params.source}` === "lightning") {
+      lightning = setInterval(
+        updateDB(dataUrl, "lightning", "number"),
+        updatePeriod
+      );
+    } else if (`${req.params.source}` === "cloud") {
+      cloud = setInterval(updateDB(dataUrl, "cloud", "number"), updatePeriod);
+    } else if (`${req.params.source}` === "mill") {
+      mill = setInterval(updateDB(dataUrl, "mill", "number"), updatePeriod);
+    }
+  }
+
+  if (req.params.switch === "update") {
+    //update params
+  }
+
+  res.send(`${req.params.source}` ? "Data is on" : "Data is off");
   res.end;
 });
 
-// app.get("/otherdata/:dataSwitch", (req, res) => {
-//   dataFeed = null;
-//   if (req.params.dataSwitch === "off") {
-//     clearInterval(interval);
-//     interval = null;
-//   } else if (req.params.dataSwitch === "on") {
-//     interval = setInterval(updateDB(dataUrl, "weather", "number"), updatePeriod);
-//   }
-//   res.send(interval ? "Data is on" : "Data is off");
-//   res.end;
-// });
-
-app.get("/api/:number", (req, res) => {
-  knex(dbTable)
+app.get("/api/:source/:number", (req, res) => {
+  knex(`${req.params.source}`)
     .select("*")
     .where({ number: req.params.number })
     .then((dataOut) => res.send(dataOut));
 });
 
-app.get("/api", (req, res) => {
-  knex(dbTable)
+app.get("/api/:source", (req, res) => {
+  knex(`${req.params.source}`)
     .select("*")
     .then((dataOut) => res.send(dataOut));
 });
