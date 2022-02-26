@@ -6,7 +6,7 @@ const axios = require("axios");
 require("dotenv").config();
 const dbTable = process.env.DB_TABLE || "weather";
 const environment =
-  require("./knexfile")[process.env.NODE_ENV || "development"];
+require("./knexfile")[process.env.NODE_ENV || "development"];
 const port = process.env.PORT || 3001;
 const knex = require("knex")(environment);
 
@@ -52,8 +52,8 @@ const updateDB = (url, tableName, uniqueField = "number") => {
     });
 };
 
-app.put("/data/:source/:switch", (req, res) => {
-  if (req.params.switch === "off") {
+app.put("/data/:source/:action", (req, res) => {
+  if (req.params.action === "off") {
     clearInterval(`${req.params.source}`);
     if (`${req.params.source}` === "lightning") {
       lightning = null;
@@ -64,7 +64,7 @@ app.put("/data/:source/:switch", (req, res) => {
     }
   }
 
-  if (req.params.switch === "on") {
+  if (req.params.action === "on") {
     if (`${req.params.source}` === "lightning") {
       lightning = setInterval(
         updateDB(dataUrlLightning, "lightning", "number"),
@@ -80,7 +80,7 @@ app.put("/data/:source/:switch", (req, res) => {
     }
   }
 
-  if (req.params.switch === "update") {
+  if (req.params.action === "update") {
     if (`${req.params.source}` === "lightning") {
       dataUrlLightning = req.body.dataUrlLightning;
       periodLightning = req.body.periodLightning;
@@ -102,6 +102,22 @@ app.put("/data/:source/:switch", (req, res) => {
   }
 
   res.send(`${req.params.source}` ? "Data is on" : "Data is off");
+  res.end;
+});
+
+app.put("/rules", (req, res) => {
+  for (let i = 0; i < res.body.length; i++) {
+    knex("rules")
+      .insert(res.body[i])
+      .onConflict("name")
+      .merge()
+      .returning("*")
+      .then(() => {
+        console.log("Data refreshed");
+        console.log("Drop records outside time bounds");
+      });
+  }
+  res.send("User data table update");
   res.end;
 });
 
