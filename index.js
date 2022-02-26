@@ -28,38 +28,6 @@ let dataUrlLightning = "https://api.weather.gov/gridpoints/MLB/56,69/forecast";
 let periodLightning = 10000;
 let lightning = null;
 
-// const getDataFeed = (url) => {
-//   axios
-//     .get(url)
-//     .then((response) => {
-//       if (response.status >= 400) {
-//         dataFeed = null;
-//         throw new Error("Bad response from server");
-//       }
-//       dataFeed = response.data;
-//     })
-//     .catch((error) => {
-//       console.error(error);
-//     });
-// };
-
-// const loadDataFeed = (dataFeed, tableName, uniqueField = "number") => {
-//   for (let i = 0; i < dataFeed.length; i++) {
-//     knex(tableName)
-//       .insert(dataFeed[i])
-//       .onConflict(uniqueField)
-//       .merge()
-//       .returning("*")
-//       .then(() => {
-//         console.log("Data refreshed");
-//       });
-//   }
-// };
-
-// const auditDataFeed = () => {
-//   console.log("Drop records outside time bounds");
-// };
-
 const updateDB = (url, tableName, uniqueField = "number") => {
   axios
     .get(url)
@@ -84,8 +52,7 @@ const updateDB = (url, tableName, uniqueField = "number") => {
     });
 };
 
-//change to put
-app.get("/data/:source/:switch", (req, res) => {
+app.put("/data/:source/:switch", (req, res) => {
   if (req.params.switch === "off") {
     clearInterval(`${req.params.source}`);
     if (`${req.params.source}` === "lightning") {
@@ -100,18 +67,38 @@ app.get("/data/:source/:switch", (req, res) => {
   if (req.params.switch === "on") {
     if (`${req.params.source}` === "lightning") {
       lightning = setInterval(
-        updateDB(dataUrl, "lightning", "number"),
+        updateDB(dataUrlLightning, "lightning", "number"),
         updatePeriod
       );
     } else if (`${req.params.source}` === "cloud") {
-      cloud = setInterval(updateDB(dataUrl, "cloud", "number"), updatePeriod);
+      cloud = setInterval(
+        updateDB(dataUrlCloud, "cloud", "number"),
+        updatePeriod
+      );
     } else if (`${req.params.source}` === "mill") {
-      mill = setInterval(updateDB(dataUrl, "mill", "number"), updatePeriod);
+      mill = setInterval(updateDB(dataUrlMill, "mill", "number"), updatePeriod);
     }
   }
 
   if (req.params.switch === "update") {
-    //update params
+    if (`${req.params.source}` === "lightning") {
+      dataUrlLightning = req.body.dataUrlLightning;
+      periodLightning = req.body.periodLightning;
+    } else if (`${req.params.source}` === "cloud") {
+      dataUrlCloud = req.body.dataUrlCloud;
+      periodCloud = req.body.periodCloud;
+    } else if (`${req.params.source}` === "mill") {
+      dataUrlMill = req.body.dataUrlMill;
+      periodMill = req.body.periodMill;
+    } else if (`${req.params.source}` === "all"){
+      dataUrlMill = req.body.dataUrlMill;
+      dataUrlCloud = req.body.dataUrlCloud;
+      dataUrlLightning = req.body.dataUrlLightning;
+      periodMill = req.body.periodMill;
+      periodCloud = req.body.periodCloud;
+      periodLightning = req.body.periodLightning;
+    }
+    console.log("Update: ", periodMill, periodCloud, periodLightning);
   }
 
   res.send(`${req.params.source}` ? "Data is on" : "Data is off");
@@ -130,3 +117,14 @@ app.get("/api/:source", (req, res) => {
     .select("*")
     .then((dataOut) => res.send(dataOut));
 });
+
+// const stubData = {
+//   dataUrlMill: "https://api.weather.gov/gridpoints/MLB/56,69/forecast",
+//   periodMill: 20000,
+
+//   dataUrlCloud: "https://api.weather.gov/gridpoints/MLB/56,69/forecast",
+//   periodCloud: 20000,
+
+//   dataUrlLightning: "https://api.weather.gov/gridpoints/MLB/56,69/forecast",
+//   periodLightning: 20000,
+// };
