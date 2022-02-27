@@ -6,7 +6,7 @@ const axios = require("axios");
 require("dotenv").config();
 const dbTable = process.env.DB_TABLE || "weather";
 const environment =
-require("./knexfile")[process.env.NODE_ENV || "development"];
+  require("./knexfile")[process.env.NODE_ENV || "development"];
 const port = process.env.PORT || 3001;
 const knex = require("knex")(environment);
 
@@ -90,7 +90,7 @@ app.put("/data/:source/:action", (req, res) => {
     } else if (`${req.params.source}` === "mill") {
       dataUrlMill = req.body.dataUrlMill;
       periodMill = req.body.periodMill;
-    } else if (`${req.params.source}` === "all"){
+    } else if (`${req.params.source}` === "all") {
       dataUrlMill = req.body.dataUrlMill;
       dataUrlCloud = req.body.dataUrlCloud;
       dataUrlLightning = req.body.dataUrlLightning;
@@ -121,11 +121,33 @@ app.put("/rules", (req, res) => {
   res.end;
 });
 
-app.get("/api/:source/:number", (req, res) => {
-  knex(`${req.params.source}`)
-    .select("*")
-    .where({ number: req.params.number })
-    .then((dataOut) => res.send(dataOut));
+app.get("/api/:source/:action", (req, res) => {
+  if (req.params.action === "url") {
+    if (req.params.source === "lightning") {
+      res.send(JSON.stringify(dataUrlLightning));
+    }
+    if (req.params.source === "mill") {
+      res.send(JSON.stringify(dataUrlMill));
+    }
+    if (req.params.source === "cloud") {
+      res.send(JSON.stringify(dataUrlCloud));
+    }
+  } else if (req.params.action === "period") {
+    if (req.params.source === "lightning") {
+      res.send(JSON.stringify(periodLightning));
+    }
+    if (req.params.source === "mill") {
+      res.send(JSON.stringify(periodMill));
+    }
+    if (req.params.source === "cloud") {
+      res.send(JSON.stringify(periodCloud));
+    }
+  } else {
+    knex(`${req.params.source}`)
+      .select("*")
+      .where({ number: req.params.action })
+      .then((dataOut) => res.send(dataOut));
+  }
 });
 
 app.get("/api/:source", (req, res) => {
