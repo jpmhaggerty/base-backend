@@ -122,31 +122,37 @@ app.put("/rules", (req, res) => {
 });
 
 app.get("/api/:source/:action", (req, res) => {
-  if (req.params.action === "url") {
-    if (req.params.source === "lightning") {
-      res.send(JSON.stringify(dataUrlLightning));
-    }
-    if (req.params.source === "mill") {
-      res.send(JSON.stringify(dataUrlMill));
-    }
-    if (req.params.source === "cloud") {
+  switch (req.params.source + req.params.action) {
+    case "cloudurl": {
       res.send(JSON.stringify(dataUrlCloud));
+      break;
     }
-  } else if (req.params.action === "period") {
-    if (req.params.source === "lightning") {
-      res.send(JSON.stringify(periodLightning));
-    }
-    if (req.params.source === "mill") {
-      res.send(JSON.stringify(periodMill));
-    }
-    if (req.params.source === "cloud") {
+    case "cloudperiod": {
       res.send(JSON.stringify(periodCloud));
+      break;
     }
-  } else {
-    knex(`${req.params.source}`)
-      .select("*")
-      .where({ number: req.params.action })
-      .then((dataOut) => res.send(dataOut));
+    case "lightningurl": {
+      res.send(JSON.stringify(dataUrlLightning));
+      break;
+    }
+    case "lightningperiod": {
+      res.send(JSON.stringify(periodLightning));
+      break;
+    }
+    case "millurl": {
+      res.send(JSON.stringify(dataUrlMill));
+      break;
+    }
+    case "millperiod": {
+      res.send(JSON.stringify(periodMill));
+      break;
+    }
+    default: {
+      knex(`${req.params.source}`)
+        .select("*")
+        .where({ number: req.params.action })
+        .then((dataOut) => res.send(dataOut));
+    }
   }
 });
 
