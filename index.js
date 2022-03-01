@@ -16,159 +16,159 @@ app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
 
-let dataUrlMill = "https://api.weather.gov/gridpoints/MLB/46,69/forecast";
-let periodMill = 10000;
-let mill = null;
+// let urlCloud = "https://api.weather.gov/gridpoints/MLB/51,69/forecast";
+// let periodCloud = 10000;
+// let intervalCloud = null;
 
-let dataUrlCloud = "https://api.weather.gov/gridpoints/MLB/51,69/forecast";
-let periodCloud = 10000;
-let cloud = null;
+// let urlLightning = "https://api.weather.gov/gridpoints/MLB/56,69/forecast";
+// let periodLightning = 10000;
+// let intervalLightning = null;
 
-let dataUrlLightning = "https://api.weather.gov/gridpoints/MLB/56,69/forecast";
-let periodLightning = 10000;
-let lightning = null;
+// let urlMill = "https://api.weather.gov/gridpoints/MLB/46,69/forecast";
+// let periodMill = 10000;
+// let intervalMill = null;
 
-const updateDB = (url, tableName, uniqueField = "number") => {
+let dataFeed = {
+  number: 1,
+  cloudurl: "https://api.weather.gov/gridpoints/MLB/46,69/forecast",
+  cloudperiod: 10000,
+  cloudinterval: null,
+  lightningurl: "https://api.weather.gov/gridpoints/MLB/51,69/forecast",
+  lightningperiod: 10000,
+  lightninginterval: null,
+  millurl: "https://api.weather.gov/gridpoints/MLB/56,69/forecast",
+  millperiod: 10000,
+  millinterval: null,
+};
+
+const updateTable = (tableName, tableRecord, conflictField) => {
+  knex(tableName)
+    .insert(tableRecord)
+    .onConflict(conflictField)
+    .merge()
+    .returning("*")
+    .then();
+};
+
+const getAPIData = (url, tableName, uniqueField) => {
+  let arrayParent = "properties";
+  let arrayChild = "periods";
   axios
     .get(url)
     .then((response) => {
       if (response.status >= 400) {
         throw new Error("Bad response from server");
-      }
-      for (let i = 0; i < response.data.properties.periods.length; i++) {
-        knex(tableName)
-          .insert(response.data.properties.periods[i])
-          .onConflict(uniqueField)
-          .merge()
-          .returning("*")
-          .then(() => {
-            console.log("Data refreshed");
-            console.log("Drop records outside time bounds");
-          });
+      } else {
+        for (
+          let i = 0;
+          i < response.data[arrayParent][arrayChild].length;
+          i++
+        ) {
+          updateTable(
+            tableName,
+            response.data[arrayParent][arrayChild][i],
+            uniqueField
+          );
+        }
       }
     })
     .catch((error) => {
       console.error(error);
     });
+  console.log("Data refreshed");
 };
 
 app.put("/data/:source/:action", (req, res) => {
-  if (req.params.action === "off") {
-    clearInterval(`${req.params.source}`);
-    if (`${req.params.source}` === "lightning") {
-      lightning = null;
-    } else if (`${req.params.source}` === "cloud") {
-      cloud = null;
-    } else if (`${req.params.source}` === "mill") {
-      mill = null;
-    }
-  }
-
-  if (req.params.action === "on") {
-    if (`${req.params.source}` === "lightning") {
-      lightning = setInterval(
-        updateDB(dataUrlLightning, "lightning", "number"),
-        updatePeriod
+  let uniqueField = "number";
+  switch (req.params.source + "/" + req.params.action) {
+    case "cloud/on":
+    case "lightning/on":
+    case "mill/on": {
+      dataFeed[req.params.source + "interval"] = setInterval(
+        () =>
+          getAPIData(
+            dataFeed[req.params.source + "url"],
+            req.params.source,
+            uniqueField
+          ),
+        dataFeed[req.params.source + "period"]
       );
-    } else if (`${req.params.source}` === "cloud") {
-      cloud = setInterval(
-        updateDB(dataUrlCloud, "cloud", "number"),
-        updatePeriod
-      );
-    } else if (`${req.params.source}` === "mill") {
-      mill = setInterval(updateDB(dataUrlMill, "mill", "number"), updatePeriod);
+      res.send(`${req.params.source} is on`);
+      break;
+    }
+    case "cloud/off":
+    case "lightning/off":
+    case "mill/off": {
+      clearInterval(dataFeed[req.params.source + "interval"]);
+      dataFeed[req.params.source + "interval"] = null;
+      res.send(`${req.params.source} is off`);
+      break;
+    }
+    case "url/update": {
+      updateTable("urls", req.body, "number");
+      dataFeed = knex("urls")
+        .select("*")
+        .where("number", 1)
+        .then((result) => res.send(...result));
+      break;
+    }
+    case "rule/update": {
+      for (let i = 0; i < res.body.length; i++) {
+        updateTable(req.params.source, res.body[i], "name");
+      }
+      res.send("User data table update");
+      console.log("Data refreshed");
+      break;
+    }
+    default: {
+      res.send("No action taken.");
     }
   }
-
-  if (req.params.action === "update") {
-    if (`${req.params.source}` === "lightning") {
-      dataUrlLightning = req.body.dataUrlLightning;
-      periodLightning = req.body.periodLightning;
-    } else if (`${req.params.source}` === "cloud") {
-      dataUrlCloud = req.body.dataUrlCloud;
-      periodCloud = req.body.periodCloud;
-    } else if (`${req.params.source}` === "mill") {
-      dataUrlMill = req.body.dataUrlMill;
-      periodMill = req.body.periodMill;
-    } else if (`${req.params.source}` === "all") {
-      dataUrlMill = req.body.dataUrlMill;
-      dataUrlCloud = req.body.dataUrlCloud;
-      dataUrlLightning = req.body.dataUrlLightning;
-      periodMill = req.body.periodMill;
-      periodCloud = req.body.periodCloud;
-      periodLightning = req.body.periodLightning;
-    }
-    console.log("Update: ", periodMill, periodCloud, periodLightning);
-  }
-
-  res.send(`${req.params.source}` ? "Data is on" : "Data is off");
-  res.end;
-});
-
-app.put("/rules", (req, res) => {
-  for (let i = 0; i < res.body.length; i++) {
-    knex("rules")
-      .insert(res.body[i])
-      .onConflict("name")
-      .merge()
-      .returning("*")
-      .then(() => {
-        console.log("Data refreshed");
-        console.log("Drop records outside time bounds");
-      });
-  }
-  res.send("User data table update");
-  res.end;
 });
 
 app.get("/api/:source/:action", (req, res) => {
-  switch (req.params.source + req.params.action) {
-    case "cloudurl": {
-      res.send(JSON.stringify(dataUrlCloud));
+  switch (req.params.source + "/" + req.params.action) {
+    case "cloud/all":
+    case "lightning/all":
+    case "mill/all": {
+      knex(`${req.params.source}`)
+        .select("*")
+        .then((dataOut) => res.send(dataOut));
       break;
     }
-    case "cloudperiod": {
-      res.send(JSON.stringify(periodCloud));
+    case "cloud/url":
+    case "lightning/url":
+    case "mill/url":
+    case "cloud/period":
+    case "lightning/period":
+    case "mill/period": {
+      knex("urls")
+        .select(req.params.source + req.params.action)
+        .where("number", 1)
+        .then((result) =>
+          res.send(JSON.stringify(...Object.values(...result)))
+        );
       break;
     }
-    case "lightningurl": {
-      res.send(JSON.stringify(dataUrlLightning));
+    case "all/url": {
+      knex("urls")
+        .select("*")
+        .where("number", 1)
+        .then((result) =>
+          res.send(JSON.stringify(...Object.values(...result)))
+        );
       break;
     }
-    case "lightningperiod": {
-      res.send(JSON.stringify(periodLightning));
-      break;
-    }
-    case "millurl": {
-      res.send(JSON.stringify(dataUrlMill));
-      break;
-    }
-    case "millperiod": {
-      res.send(JSON.stringify(periodMill));
+    case "rule/all": {
+      console.log("Send rules");
+      res.send({ rules: "rules" });
       break;
     }
     default: {
       knex(`${req.params.source}`)
-        .select("*")
-        .where({ number: req.params.action })
-        .then((dataOut) => res.send(dataOut));
+      .select("*")
+      .where('number', `${req.params.action}`)
+      .then((dataOut) => res.send(dataOut));
     }
   }
 });
-
-app.get("/api/:source", (req, res) => {
-  knex(`${req.params.source}`)
-    .select("*")
-    .then((dataOut) => res.send(dataOut));
-});
-
-// const stubData = {
-//   dataUrlMill: "https://api.weather.gov/gridpoints/MLB/56,69/forecast",
-//   periodMill: 20000,
-
-//   dataUrlCloud: "https://api.weather.gov/gridpoints/MLB/56,69/forecast",
-//   periodCloud: 20000,
-
-//   dataUrlLightning: "https://api.weather.gov/gridpoints/MLB/56,69/forecast",
-//   periodLightning: 20000,
-// };
