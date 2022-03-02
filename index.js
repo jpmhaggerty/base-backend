@@ -16,18 +16,6 @@ app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
 
-// let urlCloud = "https://api.weather.gov/gridpoints/MLB/51,69/forecast";
-// let periodCloud = 10000;
-// let intervalCloud = null;
-
-// let urlLightning = "https://api.weather.gov/gridpoints/MLB/56,69/forecast";
-// let periodLightning = 10000;
-// let intervalLightning = null;
-
-// let urlMill = "https://api.weather.gov/gridpoints/MLB/46,69/forecast";
-// let periodMill = 10000;
-// let intervalMill = null;
-
 let dataFeed = {
   number: 1,
   cloudurl: "https://api.weather.gov/gridpoints/MLB/46,69/forecast",
@@ -137,10 +125,10 @@ app.get("/api/:source/:action", (req, res) => {
       break;
     }
     case "cloud/url":
-    case "lightning/url":
-    case "mill/url":
     case "cloud/period":
+    case "lightning/url":
     case "lightning/period":
+    case "mill/url":
     case "mill/period": {
       knex("urls")
         .select(req.params.source + req.params.action)
@@ -166,9 +154,9 @@ app.get("/api/:source/:action", (req, res) => {
     }
     default: {
       knex(`${req.params.source}`)
-      .select("*")
-      .where('number', `${req.params.action}`)
-      .then((dataOut) => res.send(dataOut));
+        .select("*")
+        .where("number", `${req.params.action}`)
+        .then((dataOut) => res.send(dataOut));
     }
   }
 });
